@@ -1,0 +1,443 @@
+<!--
+  TO ACTIVATE THE VITE PROJECT RUN THESE IN THE CMD:
+    cd satellites
+  npm install
+  npm run dev
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>SATELLITES</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: black;
+        }
+    </style>
+    <script src="resources/js/chartjs_min.js"></script>
+
+</head>
+
+
+<body>
+    <input id="btnToggleInfoPanel" type="button" value="Toggle panel">
+    <div style="position:absolute; z-index: 10; color:chartreuse; font-family:'Trebuchet MS';">
+        <div id="infoPanel">
+            <p id="UTCtimeIndicator"></p>
+            <button id="btnResetCamView">Reset camera</button>
+            <br>
+            <div id="divDistance">
+                <p>GS latitude (º):</p>
+                <input id="latGS" type="number" min="-90" max="90" value="0" />
+                <br>
+                <p>GS longitude(º):</p>
+                <input id="lonGS" type="number" min="-180" max="180" value="0" />
+                <p>Distance to satellite: </p>
+                <p id="dist2satIndicator"></p>
+            </div>
+            <ul id="listOfSats"></ul>
+            <canvas id="timeSeriesChart" width="400" height="400"></canvas>
+        </div>
+        <div id="addSatPanel">
+            <b>Add new sat:</b>
+            <br>
+            <input type="text" id="newSatName" placeholder="Name">
+            <br>
+            <input type="number" id="newSatA" placeholder="Semi-major axis (m)">
+            <br>
+            <input type="number" id="newSatB" placeholder="Semi-minor axis (m)">
+            <br>
+            <input type="number" id="newSatInc" placeholder="Inclination" disabled>
+            <br>
+            <input type="number" id="newSatCenterShift" placeholder="Center shift" disabled>
+            <br>
+            <input type="radio" name="newSatMotion" id="newSatMotion1" value="1">
+            <label for="newSatMotion1">Prograde</label>
+            <br>
+            <input type="radio" name="newSatMotion" id="newSatMotion_1" value="-1">
+            <label for="newSatMotion_1">Retrograde</label>
+            <input type="button" id="btnAddSat" value="Add">
+        </div>
+    </div>
+
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.129.0';
+        import { OrbitControls } from 'https://unpkg.com/three@0.126.1/examples/jsm/controls/OrbitControls.js';
+
+        /*
+        Distance: m
+        Time    : s
+        Angle   : rad
+        */
+        const RADIUS_EARTH = 6.371088e+6;
+        const TILT_EARTH = 23.5 * Math.PI / 180;
+        const DIST_EARTH_SUN = 1.496e+11;
+        const SECONDS_ONE_DAY = 86400.002;
+
+        //////////////////////////////
+        //PREDEFINED SATELLITES:
+        //////////////////////////////
+        /*
+        a            : semi-major axis
+        b            : semi-minor axis
+        inclintation : anglet between orbital plane and equatorial plane
+        center       : center of the ellipse of the orbit
+        motion       : prograde or retrograde orbit (1,-1 respectively)
+        */
+        let sats = [
+            {
+                "name": "LEOsat0",
+                "id": "kj23kj23kj2",
+                "orbit": {
+                    "a": RADIUS_EARTH + 4e+5,
+                    "b": RADIUS_EARTH + 4e+5,
+                    "inclination": 0,
+                    "center": 0,
+                    "motion": 1
+                }
+            },
+            {
+                "name": "GEOsat0",
+                "id": "980a7sd980yry",
+                "orbit": {
+                    "a": RADIUS_EARTH + 36e+6,
+                    "b": RADIUS_EARTH + 36e+6,
+                    "inclination": 0,
+                    "center": 0,
+                    "motion": 1
+                }
+            },
+            {
+                "name": "EllipSat0",
+                "id": "l3kjkjd87365100sjdu",
+                "orbit": {
+                    "a": RADIUS_EARTH + 8e+5,
+                    "b": 5 * (RADIUS_EARTH + 8e+5),
+                    "inclination": Math.PI / 8,
+                    "center": 0,
+                    "motion": -1
+                }
+            },
+            {
+                "name": "LEOsat1",
+                "id": "ASDWkj23kj23kj2",
+                "orbit": {
+                    "a": RADIUS_EARTH + 5.5e+5,
+                    "b": RADIUS_EARTH + 5.5e+5,
+                    "inclination": 0,
+                    "center": 0,
+                    "motion": 1
+                }
+            },
+            {
+                "name": "GEOsat1",
+                "id": "980a7sd980yry",
+                "orbit": {
+                    "a": RADIUS_EARTH + 36e+6,
+                    "b": RADIUS_EARTH + 36e+6,
+                    "inclination": 0,
+                    "center": 0,
+                    "motion": -1
+                }
+            },
+            {
+                "name": "EllipSat1",
+                "id": "l3kjkjd87365100sjdu",
+                "orbit": {
+                    "a": RADIUS_EARTH + 10e+5,
+                    "b": 6 * (RADIUS_EARTH + 10e+5),
+                    "inclination": Math.PI / 8,
+                    "center": 0,
+                    "motion": -1
+                }
+            }
+        ];
+
+        //////////////////////////////
+        //Date today:
+        //////////////////////////////
+        let d = new Date();
+
+
+        //////////////////////////////
+        //SCENE:
+        //////////////////////////////
+        const scene = new THREE.Scene();
+
+        //////////////////////////////
+        //CAMERA:
+        //////////////////////////////
+        //TODO: Calculate the roper NEAR and FAR values for the frustum plane
+        //of the PerspectiveCamera.
+        const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.5 * RADIUS_EARTH, RADIUS_EARTH * 100);
+        camera.position.set(RADIUS_EARTH * 2, RADIUS_EARTH, 0);
+        camera.lookAt(0, 0, 0);
+        scene.add(camera);
+
+        //////////////////////////////
+        //RENDERER:
+        //////////////////////////////
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        //renderer.setClearColor(0xebfafa);
+        document.body.appendChild(renderer.domElement);
+
+        //////////////////////////////
+        //AXIS HELPER:
+        //////////////////////////////
+        const axesHelper = new THREE.AxesHelper(2 * RADIUS_EARTH);
+        scene.add(axesHelper);
+
+
+        //////////////////////////////
+        //ORBIT CONTROLS:
+        //////////////////////////////
+        new OrbitControls(camera, renderer.domElement);
+
+        //////////////////////////////
+        //SUN LIGHT:
+        //////////////////////////////
+        // White directional light at half intensity shining from the top:
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        // Earth is taken as the reference system. Sun position in Y axis:
+        // Sun position in X axis is simply DIST_EARTH_SUN:
+        sun.position.set(DIST_EARTH_SUN, DIST_EARTH_SUN * Math.sin(TILT_EARTH), 0);
+        scene.add(sun);
+
+        //////////////////////////////
+        //EARTH:
+        //////////////////////////////
+        const geometryEarth = new THREE.SphereGeometry(RADIUS_EARTH, 16, 16);
+        const materialEarth = new THREE.MeshPhongMaterial({
+            //color: 0x00ff99
+            map: new THREE.TextureLoader().load('resources/img/globe.jpeg')
+        });
+        const meshEarth = new THREE.Mesh(geometryEarth, materialEarth);
+        meshEarth.position.set(0, 0, 0);
+        // Set initial earth rotation angle:
+        const msEllapsedToday = (d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds()) * 1000;
+        // TODO: Fix intitial rotation angle:
+        meshEarth.rotation.y = 2 * Math.PI * msEllapsedToday / (SECONDS_ONE_DAY * 1000);
+        scene.add(meshEarth);
+
+
+
+        //CREATE WEB WORKERS:
+        //////////////////////////////
+        // Satellite size exaggerated to be able to see it:
+        const geometrySat = new THREE.SphereGeometry(500000, 1, 1);
+        let workers = [];
+        let satDisplayList = document.getElementById("listOfSats");
+        const NUM_SATS = sats.length;
+
+        for (let i = 0; i < NUM_SATS; i++) {
+            // Get the i-th satellite of the list
+            const sat = sats[i];
+
+            // Create a random coloured material: 
+            const material = new THREE.MeshBasicMaterial({
+                color: "#00ff00"
+            });
+
+            // Create the sat's mesh:
+            sat.threejs = new THREE.Mesh(geometrySat, material);
+            workers.push(new Worker("ball.js"));
+            workers[i].postMessage({
+                "a": sat.orbit.a,
+                "b": sat.orbit.b,
+                "phaseShift": 0 * 2 * Math.PI * Math.random(),
+                "inclination": sat.orbit.inclination,
+                "motion": sat.orbit.motion
+            });
+
+            workers[i].onmessage = function (event) {
+                sat.threejs.position.x = event.data.x;
+                sat.threejs.position.y = event.data.y;
+                sat.threejs.position.z = event.data.z;
+                scene.add(sat.threejs);
+            };
+
+            appendSat2DisplayList(sat, satDisplayList);
+        }
+
+
+
+        //////////////////////////////
+        //EVENT HANDLING:
+        //////////////////////////////
+
+        //Toggle information panel:
+        document.getElementById("btnToggleInfoPanel").onclick = function (e) {
+            const infoPanel = document.getElementById("infoPanel");
+            infoPanel.hidden = !infoPanel.hidden;
+        }
+
+        // Compute distance from point on Earth to satellite:
+        document.getElementById("latGS").onkeypress = function (e) {
+            const latGS = document.getElementById("latGS").value;
+            const lonGS = document.getElementById("lonGS").value;
+            const satPosCart = sats[0].threejs.position;
+            const satPosSpherical = cartesian2spherical(satPosCart.x, satPosCart.y, satPosCart.z);
+            const satPhi = getSatPhi(lonGS - satPosSpherical.phi, satPosSpherical.theta, latGS);
+            const R = distanceGS2Sat(44, satPhi);
+            document.getElementById("dist2satIndicator").innerHTML = R + " m";
+        }
+
+        document.getElementById("lonGS").onkeypress = function (e) {
+            const latGS = document.getElementById("latGS").value;
+            const lonGS = document.getElementById("lonGS").value;
+            const satPosCart = sats[0].threejs.position;
+            const satPosSpherical = cartesian2spherical(satPosCart.x, satPosCart.y, satPosCart.z);
+            const satPhi = getSatPhi(lonGS - satPosSpherical.phi, satPosSpherical.theta, latGS);
+            const R = distanceGS2Sat(44, satPhi);
+            document.getElementById("dist2satIndicator").innerHTML = R + " m";
+        }
+
+        // Reset camera to original position:
+        document.getElementById("btnResetCamView").addEventListener("click", resetCameraView, false);
+
+        // Add a satellite:
+        document.getElementById("btnAddSat").onclick = function (e) {
+            // Get the properties of the new sat:
+            const name = document.getElementById("newSatName").value;
+            const a = Number(document.getElementById("newSatA").value);
+            const b = Number(document.getElementById("newSatB").value);
+            const motion = Number(document.querySelector('input[name="newSatMotion"]:checked').value);
+
+            // Generate random ID:
+            // TODO: Avoic (unlikely) collision
+            const id = (Math.random() + 1).toString(36).substring(7);
+
+            console.log("A is a " + typeof (a) + " with value " + a + ".");
+            console.log("B is a " + typeof (b) + " with value " + b + ".");
+            // Build a satellite object:
+            let sat = {
+                "name": name,
+                "id": id,
+                "orbit": {
+                    "a": RADIUS_EARTH + a,
+                    "b": RADIUS_EARTH + b,
+                    "inclination": Math.PI / 8,
+                    "center": 0,
+                    "motion": motion
+                }
+            }
+
+            // Create a red coloured material: 
+            const material = new THREE.MeshBasicMaterial({
+                color: "#ff0000"
+            });
+
+            // Create the sat's mesh:
+            sat.threejs = new THREE.Mesh(geometrySat, material);
+
+            // Add the satellite to the array of satellites:
+            sats.push(sat);
+
+            // Get sat by reference:
+            sat = sats.filter(sat => sat.id == id)[0];
+
+            // Create a new worker for the satellite:
+            let aux = workers.push(new Worker("ball.js"));
+            workers[aux - 1].postMessage({
+                "a": sat.orbit.a,
+                "b": sat.orbit.b,
+                "phaseShift":  2 * Math.PI * Math.random(),
+                "inclination": sat.orbit.inclination,
+                "motion": sat.orbit.motion
+            });
+
+            workers[aux - 1].onmessage = function (event) {
+                
+                sat.threejs.position.x = event.data.x;
+                sat.threejs.position.y = event.data.y;
+                sat.threejs.position.z = event.data.z;
+                scene.add(sats[sats.length - 1].threejs);
+            };
+
+            // Update the <ul> of sats:
+            appendSat2DisplayList(sat, satDisplayList);
+        }
+
+
+        //////////////////////////////
+        //ANIMATE LOOP:
+        //////////////////////////////
+        let clock = new THREE.Clock();
+        let delta = 0;
+
+        render();
+        function render() {
+            requestAnimationFrame(render);
+
+            // Get time ellapsed since last frame in seconds:
+            delta = clock.getDelta();
+
+            // Rotate the Earth according to the time ellpased since last frame:
+            meshEarth.rotation.y += delta * 2 * Math.PI / SECONDS_ONE_DAY;
+
+            renderer.render(scene, camera);
+
+            // Display current time:
+            const currTime = new Date()
+            document.getElementById("UTCtimeIndicator").innerHTML = currTime.toString();
+        }
+
+        //////////////////////////////
+        //INTERFACE FUNCTIONS:
+        //////////////////////////////
+        function appendSat2DisplayList(satellite, list) {
+            let listItem = document.createElement("li");
+            let satName = document.createElement("p");
+
+            satName.append(satellite.name + " | a: " + satellite.orbit.a + " m");
+
+            listItem.appendChild(satName);
+            list.appendChild(listItem);
+        }
+
+        function resetCameraView() {
+            camera.position.set(RADIUS_EARTH * 2, 0, 0);
+            camera.lookAt(0, 0, 0);
+        }
+
+        function randomHexColour() {
+            return '#' + (Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0');
+        }
+
+        //////////////////////////////
+        //ORBITAL FUNCTIONS:
+        //////////////////////////////
+        function getSatPhi(relLong, satLat, groundStatLat) {
+            //relLong: relative satellite-earth location longitude.
+            //groundStatLat: latitude of the ground station.
+            return Math.acos(Math.cos(relLong) * Math.cos(satLat) * Math.cos(groundStatLat) + Math.sin(satLat) * Math.sin(groundStatLat));
+        }
+
+        function distanceGS2Sat(satHeight, satPhi) {
+            return satHeight * Math.sqrt(1 + ((2 * RADIUS_EARTH * (RADIUS_EARTH + satHeight)) / (satHeight ** 2)) * (1 - Math.cos(satPhi)))
+        }
+
+        //////////////////////////////
+        //ALGEBRAIC FUNCTIONS:
+        //////////////////////////////
+        function cartesian2spherical(x, y, z) {
+            // Returns a point in space in spherical coordinates
+            // given a point in space in cartesian coordinates:
+            const r = Math.sqrt(x ** 2 + y ** 2 + z ** 2);
+            const coords = {
+                "r": r,
+                "theta": Math.acos(z / r),
+                "phi": Math.atan(y / x)
+            };
+            return coords;
+        }
+
+    </script>
+</body>
+
+</html>
