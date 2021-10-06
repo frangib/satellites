@@ -87,15 +87,16 @@
         motion       : prograde or retrograde orbit (1,-1 respectively)
         */
         let sats = [
-            {
+            /*{
                 "name": "LEOsat0",
                 "id": "kj23kj23kj2",
                 "orbit": {
                     "a": RADIUS_EARTH + 4e+5,
-                    "b": RADIUS_EARTH + 4e+5,
+                    "b": 9*(RADIUS_EARTH + 4e+5),
                     "inclination": 0,
                     "center": 0,
-                    "motion": 1
+                    "motion": 1,
+                    "orbitalPeriod":0
                 }
             },
             {
@@ -106,9 +107,10 @@
                     "b": RADIUS_EARTH + 36e+6,
                     "inclination": 0,
                     "center": 0,
-                    "motion": 1
+                    "motion": 1,
+                    "orbitalPeriod":0
                 }
-            },
+            },*/
             {
                 "name": "EllipSat0",
                 "id": "l3kjkjd87365100sjdu",
@@ -117,9 +119,10 @@
                     "b": 5 * (RADIUS_EARTH + 8e+5),
                     "inclination": Math.PI / 8,
                     "center": 0,
-                    "motion": -1
+                    "motion": -1,
+                    "orbitalPeriod":0
                 }
-            },
+            }/*,
             {
                 "name": "LEOsat1",
                 "id": "ASDWkj23kj23kj2",
@@ -128,7 +131,8 @@
                     "b": RADIUS_EARTH + 5.5e+5,
                     "inclination": 0,
                     "center": 0,
-                    "motion": 1
+                    "motion": 1,
+                    "orbitalPeriod":0
                 }
             },
             {
@@ -139,7 +143,8 @@
                     "b": RADIUS_EARTH + 36e+6,
                     "inclination": 0,
                     "center": 0,
-                    "motion": -1
+                    "motion": -1,
+                    "orbitalPeriod":0
                 }
             },
             {
@@ -150,9 +155,10 @@
                     "b": 6 * (RADIUS_EARTH + 10e+5),
                     "inclination": Math.PI / 8,
                     "center": 0,
-                    "motion": -1
+                    "motion": -1,
+                    "orbitalPeriod":0
                 }
-            }
+            }*/
         ];
 
         //////////////////////////////
@@ -172,7 +178,7 @@
         //TODO: Calculate the roper NEAR and FAR values for the frustum plane
         //of the PerspectiveCamera.
         const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.5 * RADIUS_EARTH, RADIUS_EARTH * 100);
-        camera.position.set(RADIUS_EARTH * 2, RADIUS_EARTH, 0);
+        camera.position.set(RADIUS_EARTH * 0, RADIUS_EARTH*10, 0);
         camera.lookAt(0, 0, 0);
         scene.add(camera);
 
@@ -236,6 +242,7 @@
         for (let i = 0; i < NUM_SATS; i++) {
             // Get the i-th satellite of the list
             const sat = sats[i];
+            sat.orbit.orbitalPeriod = getOrbitalPeriod(Math.max(sat.orbit.a,sat.orbit.b));
 
             // Create a random coloured material: 
             const material = new THREE.MeshBasicMaterial({
@@ -248,9 +255,10 @@
             workers[i].postMessage({
                 "a": sat.orbit.a,
                 "b": sat.orbit.b,
-                "phaseShift": 0 * 2 * Math.PI * Math.random(),
+                "phaseShift": 2 * Math.PI * Math.random(),
                 "inclination": sat.orbit.inclination,
-                "motion": sat.orbit.motion
+                "motion": sat.orbit.motion,
+                "orbitalPeriod" : sat.orbit.orbitalPeriod
             });
 
             workers[i].onmessage = function (event) {
@@ -260,10 +268,11 @@
                 scene.add(sat.threejs);
             };
 
+            // Update the <ul> os sats:
             appendSat2DisplayList(sat, satDisplayList);
         }
 
-
+        console.log(sats);
 
         //////////////////////////////
         //EVENT HANDLING:
@@ -306,23 +315,27 @@
             const a = Number(document.getElementById("newSatA").value);
             const b = Number(document.getElementById("newSatB").value);
             const motion = Number(document.querySelector('input[name="newSatMotion"]:checked').value);
-
+            let orbitalPeriod = 0;
             // Generate random ID:
             // TODO: Avoic (unlikely) collision
             const id = (Math.random() + 1).toString(36).substring(7);
 
-            console.log("A is a " + typeof (a) + " with value " + a + ".");
-            console.log("B is a " + typeof (b) + " with value " + b + ".");
+            orbitalPeriod = getOrbitalPeriod(Math.max(a,b));
+ 
+            console.log("Orbital period of " + name + ": " + orbitalPeriod);
+            
+            
             // Build a satellite object:
             let sat = {
                 "name": name,
                 "id": id,
                 "orbit": {
-                    "a": RADIUS_EARTH + a,
-                    "b": RADIUS_EARTH + b,
+                    "a": a,
+                    "b": b,
                     "inclination": Math.PI / 8,
                     "center": 0,
-                    "motion": motion
+                    "motion": motion,
+                    "orbitalPeriod":orbitalPeriod
                 }
             }
 
@@ -347,11 +360,11 @@
                 "b": sat.orbit.b,
                 "phaseShift":  2 * Math.PI * Math.random(),
                 "inclination": sat.orbit.inclination,
-                "motion": sat.orbit.motion
+                "motion": sat.orbit.motion,
+                "orbitalPeriod": sat.orbit.orbitalPeriod
             });
 
             workers[aux - 1].onmessage = function (event) {
-                
                 sat.threejs.position.x = event.data.x;
                 sat.threejs.position.y = event.data.y;
                 sat.threejs.position.z = event.data.z;
@@ -411,6 +424,12 @@
         //////////////////////////////
         //ORBITAL FUNCTIONS:
         //////////////////////////////
+            function getOrbitalPeriod(a) {
+                const MU = 3.986004418e+14;
+                let period = 2 * Math.PI * Math.sqrt(((a) ** 3) / MU);
+                return period;
+            }
+
         function getSatPhi(relLong, satLat, groundStatLat) {
             //relLong: relative satellite-earth location longitude.
             //groundStatLat: latitude of the ground station.
