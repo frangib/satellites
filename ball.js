@@ -19,13 +19,13 @@ onmessage = function (e) {
 
 function position() {
     //Current time in seconds:
-    const t = Date.now() / 1; 
+    const t = Date.now() / 1000; 
 
     const theta = 2*Math.PI*t/orbitalPeriod + phaseShift;
     const pos = { 
         "x": -motion*a * Math.cos(theta),
         //TODO: y axis
-        "y": 0,//b*Math.cos(theta)
+        "y": 0,
         "z": b * Math.sin(theta)
     };
 

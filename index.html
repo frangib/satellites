@@ -87,16 +87,16 @@
         motion       : prograde or retrograde orbit (1,-1 respectively)
         */
         let sats = [
-            /*{
-                "name": "LEOsat0",
+            {
+                "name": "ISS",
                 "id": "kj23kj23kj2",
                 "orbit": {
                     "a": RADIUS_EARTH + 4e+5,
-                    "b": 9*(RADIUS_EARTH + 4e+5),
-                    "inclination": 0,
+                    "b": RADIUS_EARTH + 4e+5,
+                    "inclination": deg2rad(51.6),
                     "center": 0,
                     "motion": 1,
-                    "orbitalPeriod":0
+                    "orbitalPeriod": 0
                 }
             },
             {
@@ -108,21 +108,21 @@
                     "inclination": 0,
                     "center": 0,
                     "motion": 1,
-                    "orbitalPeriod":0
+                    "orbitalPeriod": 0
                 }
-            },*/
+            },
             {
-                "name": "EllipSat0",
+                "name": "Huble",
                 "id": "l3kjkjd87365100sjdu",
                 "orbit": {
-                    "a": RADIUS_EARTH + 8e+5,
-                    "b": 5 * (RADIUS_EARTH + 8e+5),
-                    "inclination": Math.PI / 8,
+                    "a": RADIUS_EARTH + 5e+5,
+                    "b": RADIUS_EARTH + 5e+5,
+                    "inclination": deg2rad(28.5),
                     "center": 0,
                     "motion": -1,
-                    "orbitalPeriod":0
+                    "orbitalPeriod": 0
                 }
-            }/*,
+            },
             {
                 "name": "LEOsat1",
                 "id": "ASDWkj23kj23kj2",
@@ -132,7 +132,7 @@
                     "inclination": 0,
                     "center": 0,
                     "motion": 1,
-                    "orbitalPeriod":0
+                    "orbitalPeriod": 0
                 }
             },
             {
@@ -144,7 +144,7 @@
                     "inclination": 0,
                     "center": 0,
                     "motion": -1,
-                    "orbitalPeriod":0
+                    "orbitalPeriod": 0
                 }
             },
             {
@@ -156,9 +156,9 @@
                     "inclination": Math.PI / 8,
                     "center": 0,
                     "motion": -1,
-                    "orbitalPeriod":0
+                    "orbitalPeriod": 0
                 }
-            }*/
+            }
         ];
 
         //////////////////////////////
@@ -166,6 +166,10 @@
         //////////////////////////////
         let d = new Date();
 
+        //////////////////////////////
+        // Flags, ids and others:
+        //////////////////////////////
+        let cameraIntervalId = "";
 
         //////////////////////////////
         //SCENE:
@@ -177,8 +181,8 @@
         //////////////////////////////
         //TODO: Calculate the roper NEAR and FAR values for the frustum plane
         //of the PerspectiveCamera.
-        const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.5 * RADIUS_EARTH, RADIUS_EARTH * 100);
-        camera.position.set(RADIUS_EARTH * 0, RADIUS_EARTH*10, 0);
+        const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 300000, RADIUS_EARTH * 100);
+        camera.position.set(RADIUS_EARTH * 0, RADIUS_EARTH * 10, 0);
         camera.lookAt(0, 0, 0);
         scene.add(camera);
 
@@ -242,7 +246,7 @@
         for (let i = 0; i < NUM_SATS; i++) {
             // Get the i-th satellite of the list
             const sat = sats[i];
-            sat.orbit.orbitalPeriod = getOrbitalPeriod(Math.max(sat.orbit.a,sat.orbit.b));
+            sat.orbit.orbitalPeriod = getOrbitalPeriod(Math.max(sat.orbit.a, sat.orbit.b));
 
             // Create a random coloured material: 
             const material = new THREE.MeshBasicMaterial({
@@ -258,7 +262,7 @@
                 "phaseShift": 2 * Math.PI * Math.random(),
                 "inclination": sat.orbit.inclination,
                 "motion": sat.orbit.motion,
-                "orbitalPeriod" : sat.orbit.orbitalPeriod
+                "orbitalPeriod": sat.orbit.orbitalPeriod
             });
 
             workers[i].onmessage = function (event) {
@@ -271,8 +275,6 @@
             // Update the <ul> os sats:
             appendSat2DisplayList(sat, satDisplayList);
         }
-
-        console.log(sats);
 
         //////////////////////////////
         //EVENT HANDLING:
@@ -320,11 +322,10 @@
             // TODO: Avoic (unlikely) collision
             const id = (Math.random() + 1).toString(36).substring(7);
 
-            orbitalPeriod = getOrbitalPeriod(Math.max(a,b));
- 
-            console.log("Orbital period of " + name + ": " + orbitalPeriod);
-            
-            
+            // Compute 
+            orbitalPeriod = getOrbitalPeriod(Math.max(a, b));
+
+
             // Build a satellite object:
             let sat = {
                 "name": name,
@@ -335,7 +336,7 @@
                     "inclination": Math.PI / 8,
                     "center": 0,
                     "motion": motion,
-                    "orbitalPeriod":orbitalPeriod
+                    "orbitalPeriod": orbitalPeriod
                 }
             }
 
@@ -358,7 +359,7 @@
             workers[aux - 1].postMessage({
                 "a": sat.orbit.a,
                 "b": sat.orbit.b,
-                "phaseShift":  2 * Math.PI * Math.random(),
+                "phaseShift": 2 * Math.PI * Math.random(),
                 "inclination": sat.orbit.inclination,
                 "motion": sat.orbit.motion,
                 "orbitalPeriod": sat.orbit.orbitalPeriod
@@ -374,7 +375,6 @@
             // Update the <ul> of sats:
             appendSat2DisplayList(sat, satDisplayList);
         }
-
 
         //////////////////////////////
         //ANIMATE LOOP:
@@ -405,16 +405,36 @@
         function appendSat2DisplayList(satellite, list) {
             let listItem = document.createElement("li");
             let satName = document.createElement("p");
+            let satCamBtn = document.createElement("input");
 
             satName.append(satellite.name + " | a: " + satellite.orbit.a + " m");
+            satCamBtn.setAttribute("type", "checkbox");
+            satCamBtn.addEventListener("change", function () {
+                if (this.checked) {
+                    mountCameraOnSat(satellite.id);
+                } else {
+                    clearInterval(cameraIntervalId);
+                    resetCameraView()
+                }
+            });
 
             listItem.appendChild(satName);
+            listItem.appendChild(satCamBtn);
+
             list.appendChild(listItem);
         }
 
         function resetCameraView() {
             camera.position.set(RADIUS_EARTH * 2, 0, 0);
             camera.lookAt(0, 0, 0);
+        }
+
+        function mountCameraOnSat(satID) {
+            cameraIntervalId = setInterval(function (id) {
+                const satPos = sats.filter(sat => sat.id == id)[0].threejs.position;
+                camera.position.set(satPos.x,satPos.y,satPos.z);
+                camera.lookAt(0, 0, 0);
+            }, 100, satID);
         }
 
         function randomHexColour() {
@@ -424,11 +444,11 @@
         //////////////////////////////
         //ORBITAL FUNCTIONS:
         //////////////////////////////
-            function getOrbitalPeriod(a) {
-                const MU = 3.986004418e+14;
-                let period = 2 * Math.PI * Math.sqrt(((a) ** 3) / MU);
-                return period;
-            }
+        function getOrbitalPeriod(a) {
+            const MU = 3.986004418e+14;
+            let period = 2 * Math.PI * Math.sqrt(((a) ** 3) / MU);
+            return period;
+        }
 
         function getSatPhi(relLong, satLat, groundStatLat) {
             //relLong: relative satellite-earth location longitude.
@@ -453,6 +473,14 @@
                 "phi": Math.atan(y / x)
             };
             return coords;
+        }
+
+        function deg2rad(deg) {
+            return deg / 180 * Math.PI;
+        }
+
+        function rad2deg(rad) {
+            return rad / Math.PI * 180;
         }
 
     </script>
