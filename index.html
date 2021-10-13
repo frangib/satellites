@@ -245,14 +245,12 @@
             const b = Number(document.getElementById("newSatB").value);
             const motion = Number(document.querySelector('input[name="newSatMotion"]:checked').value);
             let orbitalPeriod = getOrbitalPeriod(Math.max(a, b));
-            // Generate random ID:
-            // TODO: Avoid (unlikely) collision
-            const id = (Math.random() + 1).toString(36).substring(7);
+
 
             // Build a satellite object:
             let newSat = {
                 "name": name,
-                "id": id,
+                "id": (Math.random() + 1).toString(36).substring(7),// Generate random ID.
                 "orbit": {
                     "a": a,
                     "b": b,
@@ -267,6 +265,7 @@
 
             // Add satellite:
             addSatellite(newSat, satellites);
+
         }
 
 
@@ -346,6 +345,7 @@
             };
             //3-Add to <ul>.
             appendSat2DisplayList(sat, satDisplayList);
+
         }
 
         //////////////////////////////
@@ -408,8 +408,8 @@
             const r = Math.sqrt(x ** 2 + y ** 2 + z ** 2);
             const coords = {
                 "r": r,
-                "theta": Math.atan(y/x),
-                "phi": Math.acos(z/r)
+                "theta": Math.atan(y / x),
+                "phi": Math.acos(z / r)
             };
             return coords;
         }
