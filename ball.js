@@ -14,21 +14,20 @@ onmessage = function (e) {
     inclination = e.data.inclination;
     motion = e.data.motion;
     orbitalPeriod = e.data.orbitalPeriod
-
+    
 }
 
 function position() {
     //Current time in seconds:
+    
     const t = Date.now() / 1; 
-
+    
     const theta = 2*Math.PI*t/orbitalPeriod + phaseShift;
     const pos = { 
         "x": -motion*a * Math.cos(theta),
-        //TODO: y axis
-        "y": 0,
-        "z": b * Math.sin(theta)
+        "y": b * Math.sin(theta),
+        "z": 0//TODO: Z-axis
     };
-
     
     postMessage(pos);
     setTimeout("position()", 100);
