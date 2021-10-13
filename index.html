@@ -261,7 +261,7 @@
                     "orbitalPeriod": orbitalPeriod
                 }
             };
-            newSat.threejs = meshSat;
+            newSat.threejs = new THREE.Mesh(geometrySat, material);;
 
             // Add satellite:
             addSatellite(newSat, satellites);
@@ -380,8 +380,8 @@
         function spherical2cartesian(r, theta, phi) {
             // Angles in radians:
             const x = r * Math.cos(theta) * Math.sin(phi);
-            const y = r * Math.sin(theta) * Math.sin(phi);
-            const z = r * Math.cos(phi);
+            const y = r * Math.sin(theta) * Math.cos(phi);
+            const z = r * Math.cos(theta);
             const coords = {
                 "x": x,
                 "y": y,
@@ -394,22 +394,23 @@
             // Returns a point in space in spherical coordinates
             // given a point in space in cartesian coordinates:
             // IMPORTANT. The North-South axis is Y, not Z.
-            /*       Z(NORTH)
+            /*       Y(NORTH)
                      ^
                      |
                      |
                      |
-                     L------->Y
+                     L------->X
                     /
                    /
                   /
-                X
+                Z
             */
             const r = Math.sqrt(x ** 2 + y ** 2 + z ** 2);
             const coords = {
                 "r": r,
                 "theta": Math.atan(y / x),
                 "phi": Math.acos(z / r)
+
             };
             return coords;
         }
