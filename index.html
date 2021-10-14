@@ -29,7 +29,7 @@
         }
 
         #leftPanel {
-            background-color: rgba(255, 255, 255, 1);
+            background-color: rgb(255, 255, 255);
         }
 
         #rightPanel {
@@ -61,7 +61,8 @@
         <select id="satListSelect" name="satListSelect">
         </select>
         <br>
-        <input type="button" id="distance2sat" value="Compute distance">
+        <input type="button" id="distance2satBtn" value="Compute distance">
+        <hr>
     </div>
 
     <div id="rightPanel">
@@ -251,11 +252,27 @@
                     "orbitalPeriod": orbitalPeriod
                 }
             };
-            newSat.threejs = new THREE.Mesh(geometrySat, material);;
+            newSat.threejs = new THREE.Mesh(geometrySat, material);
 
             // Add satellite:
             addSatellite(newSat, satellites);
+        }
 
+        document.getElementById("distance2satBtn").onclick = function (e) {
+            // GS position: 
+            let latGS = deg2rad(adaptLatitude2range(document.getElementById("latGS").value));
+            let lonGS = deg2rad(document.getElementById("lonGS").value);
+
+            // Sat position:
+            let sat = satellites.filter(s => s.id == document.getElementById("satListSelect").value)[0];
+            let satPos = cartesian2spherical(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z);
+
+            // Geometric values:
+            let satPhi = getSatPhi(Math.abs(satPos.phi - lonGS), satPos.theta, latGS)
+            let satHeight = getSatHeight(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z)
+            let distance = distanceGS2Sat(satHeight, satPhi)
+
+            console.log("DISTANCE IN KM IS: " + distance / 1000);
         }
 
 
@@ -327,7 +344,6 @@
             satRemoveBtn.setAttribute("id", "btnRemove" + satellite.id);
             satRemoveBtn.setAttribute("value", "Remove");
             satRemoveBtn.addEventListener("click", function () {
-                console.log("HOOOOOOLA");
                 removeSatellite(satellite.id);
             });
 
@@ -346,9 +362,10 @@
             // Get sat by reference:
             let aux_sat = sats.filter(s => s.id == sat.id)[0];
 
-            //2- Create a new worker for the satellite:.
+            //2- Create a new worker for the satellite:
             let aux = workers.push(new Worker("ball.js"));
-            console.log(aux);
+            //Assign to it the same id thant its corresponding sat:
+            workers[workers.length - 1].id = sat.id;
             workers[aux - 1].postMessage({
                 "a": sat.orbit.a,
                 "b": sat.orbit.b,
@@ -376,15 +393,30 @@
 
             //5-Increase satCount
             satCount++;
-
         }
 
         function removeSatellite(satID) {
-            satellites.pop(satellites.filter(sat => sat.id == satID));
+            // Find index of satellite in satellites array:
+            let index = satellites.findIndex(sat => sat.id == satID);
+
+            // Get the Threejs object and remove it:
+            const sat = scene.getObjectById(satellites[index].threejs.id);
+            sat.geometry.dispose();
+            sat.material.dispose();
+            scene.remove(sat);
+
+            // Remove the satellite from the list:
+            satellites.splice(index, 1);
+
+            // Terminate worker and remove it:
+            index = workers.findIndex(w => w.id == satID);
+            workers[index].terminate();
+            workers.splice(index, 1);
+
+            // Remove the satellite from the display and the select lists:
             document.getElementById("dispListSatId" + satID).remove();
             document.getElementById("selectListSatId" + satID).remove();
-            // TODO: Remove the associated worker
-            workers.pop().terminate();
+
         }
 
         //////////////////////////////
@@ -413,9 +445,18 @@
             return satHeight * Math.sqrt(1 + ((2 * RADIUS_EARTH * (RADIUS_EARTH + satHeight)) / (satHeight ** 2)) * (1 - Math.cos(satPhi)));
         }
 
+        function getSatSpeed(r, a, b) {
+            // r is the distance from the Earth's centre to the sat's position.
+            return a / b == 1 ? Math.sqrt(MU / r) : Math.sqrt(MU * (2 / r - 1 / a))
+        }
+
         //////////////////////////////
         //ALGEBRAIC FUNCTIONS:
         //////////////////////////////
+        function ellipseEccentricity(a, b) {
+            return Math.sqrt(a ** 2 - b ** 2)/a;
+        }
+
         function spherical2cartesian(r, theta, phi) {
             // Angles in radians:
             const x = r * Math.cos(theta) * Math.sin(phi);
