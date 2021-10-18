@@ -20,7 +20,7 @@ onmessage = function (e) {
 function position() {
     //Current time in seconds:
     
-    const t = Date.now() / 0.1; 
+    const t = Date.now() / 1; 
     
     const theta = 2*Math.PI*t/orbitalPeriod + phaseShift;
     const pos = { 
