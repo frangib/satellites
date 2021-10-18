@@ -265,9 +265,6 @@
         }
 
         let distaceOverTimePlot = [];
-        let satPosPhiOverTime = [];
-        let satPosThetaOverTime = [];
-        let satPhiOverTime = [];
         let timestampsDistPlot = [];
         document.getElementById("distance2satBtn").onclick = function (e) {
             // GS position: 
@@ -278,23 +275,23 @@
             setInterval(function () {
                 // Sat position:
                 let sat = satellites.filter(s => s.id == document.getElementById("satListSelect").value)[0];
-                let distance = distanceBetweenTwoPoints(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
-                console.log("distance: " + distance/1000 + " km");
+                let distance = 0;
+                distance = distanceBetweenTwoPoints(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
 
-                distaceOverTimePlot.push(distance);
+                distaceOverTimePlot.push(distance / 1000);
                 timestampsDistPlot.push(new Date());
                 let data = [
                     {
                         x: timestampsDistPlot,
                         y: distaceOverTimePlot,
-                        type: 'line'
+                        type: 'line',
+                        line: { color: 'teal' }
                     }
                 ];
 
                 let layout = {
-                    title: 'Distance',
+                    title: 'Distance (km)',
                 };
-
 
                 Plotly.newPlot('distancePlot', data, layout);
             }, 100);
@@ -467,21 +464,7 @@
         }
 
         function distanceBetweenTwoPoints(xsat, ysat, zsat, xgs, ygs, zgs) {
-            if (Number.isNaN(xsat)) {
-                console.log("xsat is NaN!");
-            } else if (Number.isNaN(ysat)) {
-                console.log("ysat is NaN!");
-            }else if (Number.isNaN(zsat)) {
-                console.log("zsat is NaN!");
-            } else if (Number.isNaN(xgs)) {
-                console.log("xgs is NaN!");
-            } else if (Number.isNaN(ygs)) {
-                console.log("ygs is NaN!");
-            } else if (Number.isNaN(zgs)) {
-                console.log("zgs is NaN!");
-            }
-
-            return Math.sqrt((xsat - xgs) ** 2 - (ysat - ygs) ** 2 - (zsat - zgs) ** 2);
+            return Math.sqrt((xsat - xgs) ** 2 + (ysat - ygs) ** 2 + (zsat - zgs) ** 2);
         }
 
         function getSatSpeed(r, a, b) {
