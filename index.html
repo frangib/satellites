@@ -40,9 +40,13 @@
         #listOfSats {
             overflow: auto;
             height: 25%;
+            border-style: solid;
+            border-width: 2px;
+            border-color: #000000;
+            border-radius: 3%;
         }
     </style>
-    <script src="resources/js/chartjs_min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.4.2.min.js"></script>
 
 </head>
 
@@ -62,6 +66,7 @@
         </select>
         <br>
         <input type="button" id="distance2satBtn" value="Compute distance">
+        <div id="distancePlot"></div>
         <hr>
     </div>
 
@@ -70,17 +75,17 @@
         <div id="addSatPanel">
             <b>Add new sat:</b>
             <br>
-            <input type="text" id="newSatName" placeholder="Name">
+            <input type="text" id="newSatName" placeholder="Name" value="ISS">
             <br>
-            <input type="number" id="newSatA" placeholder="Semi-major axis (m)">
+            <input type="number" id="newSatA" placeholder="Semi-major axis (m)" value="7000000">
             <br>
-            <input type="number" id="newSatB" placeholder="Semi-minor axis (m)">
+            <input type="number" id="newSatB" placeholder="Semi-minor axis (m)" value="7000000">
             <br>
             <input type="number" id="newSatInc" placeholder="Inclination" disabled>
             <br>
             <input type="number" id="newSatcentreShift" placeholder="centre shift" disabled>
             <br>
-            <input type="radio" name="newSatMotion" id="newSatMotion1" value="1">
+            <input type="radio" name="newSatMotion" id="newSatMotion1" value="1" checked>
             <label for="newSatMotion1">Prograde</label>
             <br>
             <input type="radio" name="newSatMotion" id="newSatMotion_1" value="-1">
@@ -199,7 +204,7 @@
         const meshEarth = new THREE.Mesh(geometryEarth, materialEarth);
         meshEarth.position.set(0, 0, 0);
         meshEarth.rotation.x = Math.PI / 2;
-        meshEarth.rotation.y = Math.PI / 2;// TODO: Understand why not rotation on z axis but y axis.
+        meshEarth.rotation.y = 0;// TODO: Understand why not rotation on z axis but y axis.
         scene.add(meshEarth);
 
 
@@ -225,6 +230,7 @@
         // INTERVALS:
         //////////////////////////////
         setInterval(updateCurrenTimeIndicator, 1000);
+
 
         //////////////////////////////
         // EVENT LISTENERS:
@@ -258,21 +264,40 @@
             addSatellite(newSat, satellites);
         }
 
+        let distaceOverTimePlot = [];
+        let satPosPhiOverTime = [];
+        let satPosThetaOverTime = [];
+        let satPhiOverTime = [];
+        let timestampsDistPlot = [];
         document.getElementById("distance2satBtn").onclick = function (e) {
             // GS position: 
             let latGS = deg2rad(adaptLatitude2range(document.getElementById("latGS").value));
             let lonGS = deg2rad(document.getElementById("lonGS").value);
+            let gsPos = spherical2cartesian(RADIUS_EARTH, lonGS, latGS);
 
-            // Sat position:
-            let sat = satellites.filter(s => s.id == document.getElementById("satListSelect").value)[0];
-            let satPos = cartesian2spherical(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z);
+            setInterval(function () {
+                // Sat position:
+                let sat = satellites.filter(s => s.id == document.getElementById("satListSelect").value)[0];
+                let distance = distanceBetweenTwoPoints(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
+                console.log("distance: " + distance/1000 + " km");
 
-            // Geometric values:
-            let satPhi = getSatPhi(Math.abs(satPos.phi - lonGS), satPos.theta, latGS)
-            let satHeight = getSatHeight(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z)
-            let distance = distanceGS2Sat(satHeight, satPhi)
+                distaceOverTimePlot.push(distance);
+                timestampsDistPlot.push(new Date());
+                let data = [
+                    {
+                        x: timestampsDistPlot,
+                        y: distaceOverTimePlot,
+                        type: 'line'
+                    }
+                ];
 
-            console.log("DISTANCE IN KM IS: " + distance / 1000);
+                let layout = {
+                    title: 'Distance',
+                };
+
+
+                Plotly.newPlot('distancePlot', data, layout);
+            }, 100);
         }
 
 
@@ -441,20 +466,34 @@
             return Math.sqrt(x ** 2 + y ** 2 + z ** 2) - RADIUS_EARTH;
         }
 
-        function distanceGS2Sat(satHeight, satPhi) {
-            return satHeight * Math.sqrt(1 + ((2 * RADIUS_EARTH * (RADIUS_EARTH + satHeight)) / (satHeight ** 2)) * (1 - Math.cos(satPhi)));
+        function distanceBetweenTwoPoints(xsat, ysat, zsat, xgs, ygs, zgs) {
+            if (Number.isNaN(xsat)) {
+                console.log("xsat is NaN!");
+            } else if (Number.isNaN(ysat)) {
+                console.log("ysat is NaN!");
+            }else if (Number.isNaN(zsat)) {
+                console.log("zsat is NaN!");
+            } else if (Number.isNaN(xgs)) {
+                console.log("xgs is NaN!");
+            } else if (Number.isNaN(ygs)) {
+                console.log("ygs is NaN!");
+            } else if (Number.isNaN(zgs)) {
+                console.log("zgs is NaN!");
+            }
+
+            return Math.sqrt((xsat - xgs) ** 2 - (ysat - ygs) ** 2 - (zsat - zgs) ** 2);
         }
 
         function getSatSpeed(r, a, b) {
             // r is the distance from the Earth's centre to the sat's position.
-            return a / b == 1 ? Math.sqrt(MU / r) : Math.sqrt(MU * (2 / r - 1 / a))
+            return ellipseEccentricity(a, b) == 0 ? Math.sqrt(MU / r) : Math.sqrt(MU * (2 / r - 1 / a))
         }
 
         //////////////////////////////
         //ALGEBRAIC FUNCTIONS:
         //////////////////////////////
         function ellipseEccentricity(a, b) {
-            return Math.sqrt(a ** 2 - b ** 2)/a;
+            return Math.sqrt(a ** 2 - b ** 2) / a;
         }
 
         function spherical2cartesian(r, theta, phi) {
@@ -485,12 +524,36 @@
                   /
                 Z
             */
+            let phi = 0;
+            // TO DO: Find more efficient algorithm.
+            if (x * y > 0) {
+                if (x > 0 && y > 0) {
+                    //quadrant = 1;
+                    console.log("Q1");
+                    phi = Math.atan(y / x);
+                } else {
+                    //quadrant = 3;
+                    console.log("Q3");
+                    phi = Math.PI + Math.atan(y / x);
+                }
+            } else {
+                if (x < 0 && y > 0) {
+                    //quadrant = 2;
+                    console.log("Q2");
+                    phi = Math.PI / 2 + Math.atan(-x / y);
+                } else {
+                    //quadrant = 4;
+                    console.log("Q4");
+                    phi = 3 * Math.PI / 2 + Math.atan(x / -y);
+                }
+            }
+
+
             const r = Math.sqrt(x ** 2 + y ** 2 + z ** 2);
             const coords = {
                 "r": r,
-                "theta": Math.atan(y / x),
-                "phi": Math.acos(z / r)
-
+                "theta": Math.acos(z / r),
+                "phi": phi
             };
             return coords;
         }
