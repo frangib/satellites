@@ -1,9 +1,54 @@
 <!--
-FIXME: There's a big missunderstanding with the reference system (spherical/cartesian).
-FIX IT AND THEN MOVE ON.
-    cd satellites
-  npm install
-  npm run dev
+Description     : Satellite orbit simulator based in Three.js.
+Author          : Fran Ginot
+Run             : cd satellites
+                  npm install
+                  npm run dev
+                  visit localhost:3000
+Important notes :
+(1) COORDINATE SYSTEM FOR COMPUTATIONS IS AS FOLLOWS:
+       Y(NORTH-SOUTH axis)
+        ^
+        |
+        |
+        |
+        L-------X
+       /
+      /
+     /
+    Z
+    Location 0ºN, 0ºE corresponds to theta = 0º and phi = 0º.
+    Location 90ºN, 0ºE corresponds to theta = 90º and phi = 0º.
+    Location 0ºN, 90ºE corresponds to theta = 0º and phi = 90º. 
+    where theta and phi are the standard angles in a spherical coordinate system.
+    Theta in [-90,90]º.
+    Phi in [-180,180]º.
+
+(2) COORDINATE SYSTEM FOR THREE.JS IS AS FOLLOWS:
+        Y(NORTH-SOUTH axis)
+        ^
+        |
+        |
+        |
+        L-------X
+       /
+      /
+     /
+    Z
+    Location 0ºN, 0ºE corresponds to theta = 90º and phi = 0º.
+    Location 90ºN, 0ºE corresponds to theta = 0º and phi = 0º.
+    Location 0ºN, 90ºE corresponds to theta = 0º and phi = 90º.
+    Location 45ºS, 90ºE corresponds to theta = 135º and phi = 90º. 
+    where theta and phi are the standard angles in a spherical coordinate system.
+    Theta in [-90,90]º.
+    Phi in [-180,180]º.
+    Important: See adaptLatitude2range() to see how the latitude is adapted from
+    real tothree.js.
+
+
+              
+
+
 -->
 <!DOCTYPE html>
 <html>
@@ -57,7 +102,6 @@ FIX IT AND THEN MOVE ON.
         <p id="currTimeIndic"></p>
         <hr>
         <h2>Ground Station</h2>
-        <!--/////////////////////////////////////////-->
         <div id="addGSPanel">
             <b>Add new ground station:</b>
             <br>
@@ -73,9 +117,6 @@ FIX IT AND THEN MOVE ON.
         </div>
         <ul id="listOfGS"></ul>
         <hr>
-
-        <!--/////////////////////////////////////////-->
-
         <p>Latitude (º):</p>
         <input type="number" id="latGS" max="90" min="-90" value="42">
         <p>Longitude (º):</p>
@@ -120,14 +161,15 @@ FIX IT AND THEN MOVE ON.
         import * as THREE from 'https://cdn.skypack.dev/three@0.129.0';
         import { OrbitControls } from 'https://unpkg.com/three@0.126.1/examples/jsm/controls/OrbitControls.js';
 
+        
+        //////////////////////////////
+        // PHYSICAL CONSTANTS:
+        ////////////////////////////// 
         /*
         Distance: m
         Time    : s
         Angle   : rad
         */
-        //////////////////////////////
-        // PHYSICAL CONSTANTS:
-        ////////////////////////////// 
         const RADIUS_EARTH = 6.371088e+6;
         const TILT_EARTH = 23.5 * Math.PI / 180;
         const DIST_EARTH_SUN = 1.496e+11;
@@ -167,6 +209,7 @@ FIX IT AND THEN MOVE ON.
         let satCount = 0;
         let gsCount = 0;
         let cameraIntervalId = 0
+
         //////////////////////////////
         // Time stuff:
         //////////////////////////////
@@ -218,11 +261,13 @@ FIX IT AND THEN MOVE ON.
         //////////////////////////////
         // White directional light at half intensity shining from the top:
         const sun = new THREE.DirectionalLight(0xffffff, 1);
+        // TODO: Calculate sun position according to date and time and fix it.
         // Earth is taken as the reference system. Sun position in Y axis:
         // Sun position in X axis is simply DIST_EARTH_SUN:
         sun.position.set(DIST_EARTH_SUN, 0,
             DIST_EARTH_SUN * Math.sin(TILT_EARTH));
         scene.add(sun);
+        
 
         //////////////////////////////
         // EARTH:
@@ -365,8 +410,7 @@ FIX IT AND THEN MOVE ON.
                 distance = distanceBetweenTwoPoints(
                     sat.threejs.position.x, sat.threejs.position.y,
                     sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
-                distaceOverTimePlot.push(distance/1000);
-                console.log({"gsPos":gsPos});
+                distaceOverTimePlot.push(distance / 1000);
 
                 speed = getSatSpeed(distanceBetweenTwoPoints(
                     sat.threejs.position.x, sat.threejs.position.y,
@@ -411,11 +455,15 @@ FIX IT AND THEN MOVE ON.
         // INTERFACE  FUNCTIONS:
         //////////////////////////////
         function resetCameraView() {
+            // Sets the camera to the original position and orientation.
             camera.position.set(RADIUS_EARTH * 2, 0, 0);
             camera.lookAt(0, 0, 0);
         }
 
         function mountCameraOnSat(satID) {
+            // Continiously sets the camera on the position of the satellite
+            // whose id is passed as an argument. Gives the effect that the
+            // camera is mounted on the satellite.
             cameraIntervalId = setInterval(function (id) {
                 const satPos = satellites.filter(
                     sat => sat.id == id)[0].threejs.position;
@@ -425,6 +473,8 @@ FIX IT AND THEN MOVE ON.
         }
 
         function mountCameraOnGroundStation(gsID) {
+            // Sets the camera position to the position of the GS whose id is 
+            // passed as an argument.
             const gsPos = groundStations.filter(
                 gs => gs.id == gsID)[0].threejs.position;
             camera.position.set(gsPos.x, gsPos.y, gsPos.z);
@@ -441,6 +491,7 @@ FIX IT AND THEN MOVE ON.
         }
 
         function appendSat2DisplayList(satellite, list) {
+            // Adds a satellite to a scrollable list.
             // Text:
             let listItem = document.createElement("li");
             let satName = document.createElement("p");
@@ -497,6 +548,9 @@ FIX IT AND THEN MOVE ON.
         }
 
         function addSatellite(sat, sats) {
+            // Adds a satellite to a list of satellites, creates a new worker
+            // for it and increases the satellite count.
+
             //1- Add to satellites array
             sats.push(sat);
 
@@ -640,12 +694,17 @@ FIX IT AND THEN MOVE ON.
         // ORBITAL FUNCTIONS:
         //////////////////////////////
         function getOrbitalPeriod(a) {
+            // Returns the orbital period of a satellite given its semi-major
+            // axis according to Kepler's third law.
             const MU = 3.986004418e+14;
             let period = 2 * Math.PI * Math.sqrt(((a) ** 3) / MU);
             return period;
         }
 
         function getSatPhi(relLong, satLat, groundStatLat) {
+            // Phi is the angle formed by the intersection of these lines:
+            // Line 1: Earth's centre - Ground station
+            // Line 2: Earth's centre - Satellite
             //relLong: relative satellite-earth location longitude.
             //groundStatLat: latitude of the ground station.
             //All in radians.
@@ -655,33 +714,37 @@ FIX IT AND THEN MOVE ON.
         }
 
         function getSatHeight(x, y, z) {
-            // Formula for the distance between two points in 3D
-            // space (Eart's radius has to be removed for height):
+            // Computed as the distance from the origin of the coordinate
+            // system minus the Earth's radius.
             return Math.sqrt(x ** 2 + y ** 2 + z ** 2) - RADIUS_EARTH;
         }
 
         function distanceBetweenTwoPoints(xsat, ysat, zsat, xgs, ygs, zgs) {
+            // Classical formula for distance in 3D cartesian space:
             return Math.sqrt(
                 (xsat - xgs) ** 2 + (ysat - ygs) ** 2 + (zsat - zgs) ** 2);
         }
 
         function getSatSpeed(r, a, b) {
-            // r is the distance from the Earth's centre to the sat's position.
+            // Returns a satellite's speed given
+            // r: distance from coordinate system origin
+            // a: semi-major axis.
+            // b: semi-minor axis.
             const MU = 3.986004418e+14;
             return ellipseEccentricity(a, b) == 0 ? Math.sqrt(MU / r) : Math.sqrt(MU * (2 / r - 1 / a))
         }
 
 
-        //////////////////////////////35.2824° N, 
+        //////////////////////////////
         //ALGEBRAIC FUNCTIONS:
         //////////////////////////////
         function ellipseEccentricity(a, b) {
             return Math.sqrt(a ** 2 - b ** 2) / a;
         }
 
-        // FIXME: LAS LATITUDES POSITIVAS QUEDAN AL OESTE Y LAS NEGATIVAS AL ESTE.
-        // TIENE QUE SER AL REVÉS.
         function spherical2cartesian(r, theta, phi) {
+            // Return and object containing the 3D cartesian coordinates of a
+            // point given in spherical coordinates.
             // Angles in radians:
             const x = r * Math.sin(theta) * Math.cos(phi);
             const y = r * Math.sin(theta) * Math.sin(phi);
@@ -714,21 +777,17 @@ FIX IT AND THEN MOVE ON.
             if (x * y > 0) {
                 if (x > 0 && y > 0) {
                     //quadrant = 1;
-                    console.log("Q1");
                     phi = Math.atan(y / x);
                 } else {
                     //quadrant = 3;
-                    console.log("Q3");
                     phi = Math.PI + Math.atan(y / x);
                 }
             } else {
                 if (x < 0 && y > 0) {
                     //quadrant = 2;
-                    console.log("Q2");
                     phi = Math.PI / 2 + Math.atan(-x / y);
                 } else {
                     //quadrant = 4;
-                    console.log("Q4");
                     phi = 3 * Math.PI / 2 + Math.atan(x / -y);
                 }
             }
@@ -752,14 +811,9 @@ FIX IT AND THEN MOVE ON.
         }
 
         function adaptLatitude2range(realLat) {
-            // realLat in degrees:
+            // See notes (1) and (2):
             const lat3js = realLat >= 90 ? 90 - realLat : Math.abs(realLat - 90);
             return lat3js;
-        }
-
-        function correctLongitude(realLong) {
-            //realLong in degrees:
-            return realLong - 90;
         }
     </script>
 </body>
