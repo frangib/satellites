@@ -15,7 +15,8 @@ FIX IT AND THEN MOVE ON.
         body {
             margin: 0;
             background-color: black;
-            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande',
+                'Lucida Sans Unicode', Geneva, Verdana, sans-serif
         }
 
         #leftPanel,
@@ -139,11 +140,8 @@ FIX IT AND THEN MOVE ON.
         const geometrySat = new THREE.SphereGeometry(500000, 1, 1);
         const materialSat = new THREE.MeshBasicMaterial({ color: "#00ff00" });
         const meshSat = new THREE.Mesh(geometrySat, materialSat);
-
-
         const geometryGS = new THREE.SphereGeometry(50000, 10, 10);
-        const materialGS = new THREE.MeshBasicMaterial({ color: "#FFF933" });
-        const meshGS = new THREE.Mesh(geometryGS, materialGS);
+        const materialGS = new THREE.MeshBasicMaterial({ color: "#fff933" });
 
         //////////////////////////////
         // HTML OBJECTS:
@@ -188,7 +186,10 @@ FIX IT AND THEN MOVE ON.
         //////////////////////////////
         // CAMERA:
         //////////////////////////////
-        const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 300000, RADIUS_EARTH * 100);
+        const camera = new THREE.PerspectiveCamera(85,
+            window.innerWidth / window.innerHeight,
+            300000,
+            RADIUS_EARTH * 100);
         camera.position.set(RADIUS_EARTH * 2, 0, 0);
         camera.lookAt(0, 0, 0);
         scene.add(camera);
@@ -219,7 +220,8 @@ FIX IT AND THEN MOVE ON.
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         // Earth is taken as the reference system. Sun position in Y axis:
         // Sun position in X axis is simply DIST_EARTH_SUN:
-        sun.position.set(DIST_EARTH_SUN, 0, DIST_EARTH_SUN * Math.sin(TILT_EARTH));
+        sun.position.set(DIST_EARTH_SUN, 0,
+            DIST_EARTH_SUN * Math.sin(TILT_EARTH));
         scene.add(sun);
 
         //////////////////////////////
@@ -273,7 +275,8 @@ FIX IT AND THEN MOVE ON.
             const name = document.getElementById("newSatName").value;
             const a = Number(document.getElementById("newSatA").value);
             const b = Number(document.getElementById("newSatB").value);
-            const motion = Number(document.querySelector('input[name="newSatMotion"]:checked').value);
+            const motion = Number(document.querySelector(
+                'input[name="newSatMotion"]:checked').value);
             let orbitalPeriod = getOrbitalPeriod(Math.max(a, b));
 
 
@@ -327,38 +330,49 @@ FIX IT AND THEN MOVE ON.
             gsLat = deg2rad(adaptLatitude2range(gsLat));
 
             // Account for the Earth's rotation:
-            gsLong = deg2rad(gsLong); //+ ellpasedTime * EARTH_ROTATION_RATE) % 2 * Math.PI;
+            gsLong = deg2rad(gsLong);
+            //+ ellpasedTime * EARTH_ROTATION_RATE) % 2 * Math.PI;
 
             // Compute the Threejs position:
-            const gsPos = spherical2cartesian(RADIUS_EARTH+height, gsLat, gsLong);
+            const gsPos = spherical2cartesian(RADIUS_EARTH + height,
+                gsLat, gsLong);
 
             newGs.threejs = new THREE.Mesh(geometryGS, materialGS);
-            //FIXME: Threejs places the GS below the Earth's crust:
             newGs.threejs.position.set(gsPos.x, gsPos.y, gsPos.z)
             scene.add(newGs.threejs)
             groundStations.push(newGs);
 
-            //aqui
             appendGS2DisplayList(newGs, gsDisplayList);
             gsCount++;
         }
 
         document.getElementById("distance2satBtn").onclick = function (e) {
             // GS position: 
-            let latGS = deg2rad(adaptLatitude2range(document.getElementById("latGS").value));
-            let lonGS = deg2rad(document.getElementById("lonGS").value);
-            let gsPos = spherical2cartesian(RADIUS_EARTH, lonGS, latGS);
+            let latGS = deg2rad(adaptLatitude2range(
+                Number(document.getElementById("latGS").value)));
+            let lonGS = deg2rad(Number(document.getElementById("lonGS").value));
+            let height = Number(document.getElementById("newGSHeight").value);
+            let gsPos = spherical2cartesian(RADIUS_EARTH + height, latGS, lonGS);
 
             setInterval(function () {
                 // Sat position:
-                let sat = satellites.filter(s => s.id == document.getElementById("satListSelect").value)[0];
+                let sat = satellites.filter(
+                    s => s.id == document.getElementById(
+                        "satListSelect").value)[0];
                 let distance = 0;
                 let speed = 0;
 
-                distance = distanceBetweenTwoPoints(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
-                distaceOverTimePlot.push(distance / 1000);
+                distance = distanceBetweenTwoPoints(
+                    sat.threejs.position.x, sat.threejs.position.y,
+                    sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
+                distaceOverTimePlot.push(distance/1000);
+                console.log({"gsPos":gsPos});
 
-                speed = getSatSpeed(distanceBetweenTwoPoints(sat.threejs.position.x, sat.threejs.position.y, sat.threejs.position.z, 0, 0, 0), sat.orbit.a, sat.orbit.b)
+                speed = getSatSpeed(distanceBetweenTwoPoints(
+                    sat.threejs.position.x, sat.threejs.position.y,
+                    sat.threejs.position.z, 0, 0, 0
+                ), sat.orbit.a, sat.orbit.b
+                );
                 speedOverTimePlot.push(Math.round(speed));
                 timestampsPlots.push(new Date());
 
@@ -379,8 +393,7 @@ FIX IT AND THEN MOVE ON.
                     {
                         x: timestampsPlots,
                         y: speedOverTimePlot,
-                        type: 'line',
-                        line: { color: 'teal' }
+                        type: 'line'
                     }
                 ];
 
@@ -404,20 +417,23 @@ FIX IT AND THEN MOVE ON.
 
         function mountCameraOnSat(satID) {
             cameraIntervalId = setInterval(function (id) {
-                const satPos = satellites.filter(sat => sat.id == id)[0].threejs.position;
+                const satPos = satellites.filter(
+                    sat => sat.id == id)[0].threejs.position;
                 camera.position.set(satPos.x, satPos.y, satPos.z);
                 camera.lookAt(0, 0, 0);
             }, 100, satID);
         }
 
         function mountCameraOnGroundStation(gsID) {
-            const gsPos = groundStations.filter(gs => gs.id == gsID)[0].threejs.position;
+            const gsPos = groundStations.filter(
+                gs => gs.id == gsID)[0].threejs.position;
             camera.position.set(gsPos.x, gsPos.y, gsPos.z);
-            camera.lookAt(10 * gsPos.x, 10 * gsPos.y, 10 * gsPos.z); // Calcular lookAt justo ortogonal al suelo.
+            camera.lookAt(10 * gsPos.x, 10 * gsPos.y, 10 * gsPos.z);
         }
 
         function randomHexColour() {
-            return '#' + (Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0');
+            return '#' + (
+                Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0');
         }
 
         function updateCurrenTimeIndicator() {
@@ -556,7 +572,8 @@ FIX IT AND THEN MOVE ON.
             let satRemoveBtn = document.createElement("input");
 
             // Text:
-            gsName.append(gs.name + " | lat: " + gs.location.lat + " º, long: " + gs.location.long);
+            gsName.append(
+                gs.name + " | lat: " + gs.location.lat + " º, long: " + gs.location.long);
 
             // Camera button
             gsCamBtn.setAttribute("type", "checkbox");
@@ -632,7 +649,9 @@ FIX IT AND THEN MOVE ON.
             //relLong: relative satellite-earth location longitude.
             //groundStatLat: latitude of the ground station.
             //All in radians.
-            return Math.acos(Math.cos(relLong) * Math.cos(satLat) * Math.cos(groundStatLat) + Math.sin(satLat) * Math.sin(groundStatLat));
+            return Math.acos(
+                Math.cos(relLong) * Math.cos(satLat) * Math.cos(groundStatLat)
+                + Math.sin(satLat) * Math.sin(groundStatLat));
         }
 
         function getSatHeight(x, y, z) {
@@ -642,7 +661,8 @@ FIX IT AND THEN MOVE ON.
         }
 
         function distanceBetweenTwoPoints(xsat, ysat, zsat, xgs, ygs, zgs) {
-            return Math.sqrt((xsat - xgs) ** 2 + (ysat - ygs) ** 2 + (zsat - zgs) ** 2);
+            return Math.sqrt(
+                (xsat - xgs) ** 2 + (ysat - ygs) ** 2 + (zsat - zgs) ** 2);
         }
 
         function getSatSpeed(r, a, b) {
@@ -652,7 +672,7 @@ FIX IT AND THEN MOVE ON.
         }
 
 
-        //////////////////////////////
+        //////////////////////////////35.2824° N, 
         //ALGEBRAIC FUNCTIONS:
         //////////////////////////////
         function ellipseEccentricity(a, b) {
