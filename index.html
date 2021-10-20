@@ -118,19 +118,18 @@ Important notes :
         </div>
         <ul id="listOfGS"></ul>
         <hr>
-        <p>Latitude (º):</p>
-        <input type="number" id="latGS" max="90" min="-90" value="42">
-        <p>Longitude (º):</p>
-        <input type="number" id="lonGS" max="180" min="-180" value="2">
-        <br>
-        <label for="cars">Choose a satellite:</label>
+
+        <label for="satListSelect">Choose a satellite:</label>
         <select id="satListSelect" name="satListSelect">
+        </select>
+        <br>
+        <label for="gsListSelect">Choose a ground station:</label>
+        <select id="gsListSelect" name="gsListSelect">
         </select>
         <br>
         <input type="button" id="distance2satBtn" value="Compute parameters">
         <div id="distancePlot"></div>
         <div id="speedPlot"></div>
-        <hr>
     </div>
 
     <div id="rightPanel">
@@ -162,7 +161,7 @@ Important notes :
         import * as THREE from 'https://cdn.skypack.dev/three@0.129.0';
         import { OrbitControls } from 'https://unpkg.com/three@0.126.1/examples/jsm/controls/OrbitControls.js';
 
-        
+
         //////////////////////////////
         // PHYSICAL CONSTANTS:
         ////////////////////////////// 
@@ -175,7 +174,8 @@ Important notes :
         const TILT_EARTH = 23.5 * Math.PI / 180;
         const DIST_EARTH_SUN = 1.496e+11;
         const SECONDS_ONE_DAY = 86400.002;
-        const EARTH_ROTATION_RATE = 2 * Math.PI / SECONDS_ONE_DAY; // rad/s
+        const EARTH_ROTATION_RATE_RAD = 100 * 2 * Math.PI / SECONDS_ONE_DAY; // rad/s
+        const EARTH_ROTATION_RATE_DEG = rad2deg(EARTH_ROTATION_RATE_RAD);
 
         //////////////////////////////
         // 3JS CONSTANTS:
@@ -187,12 +187,19 @@ Important notes :
         const materialGS = new THREE.MeshBasicMaterial({ color: "#fff933" });
 
         //////////////////////////////
+        // TIME SPEED CONSTANTS:
+        ////////////////////////////// 
+        const PERIOD_SLOW_UPDATE = 1000;
+        const PERIOD_FAST_UPDATE = 100;
+
+        //////////////////////////////
         // HTML OBJECTS:
         //////////////////////////////
         let currTimeIndic = document.getElementById("currTimeIndic");
         let satDisplayList = document.getElementById("listOfSats");
-        let satSelectList = document.getElementById("satListSelect");
+        let satListSelect = document.getElementById("satListSelect");
         let gsDisplayList = document.getElementById("listOfGS");
+        let gsListSelect = document.getElementById("gsListSelect");
 
         //////////////////////////////
         //PREDEFINED SATELLITES:
@@ -216,7 +223,8 @@ Important notes :
         // Time stuff:
         //////////////////////////////
         let d = new Date();
-        let ellpasedTime = 0;
+        let ellapsedTime = 0;
+        let timeSinceLastUpdate = 0;
 
         //////////////////////////////
         // SCENE:
@@ -269,7 +277,7 @@ Important notes :
         sun.position.set(DIST_EARTH_SUN, 0,
             DIST_EARTH_SUN * Math.sin(TILT_EARTH));
         scene.add(sun);
-        
+
 
         //////////////////////////////
         // EARTH:
@@ -298,11 +306,12 @@ Important notes :
             // Time since last frame in s:
             delta = clock.getDelta();
 
-            // Rotate the Earth according to the time ellpased since last frame:
-            meshEarth.rotation.y += delta * EARTH_ROTATION_RATE;
+            // Rotate the Earth according to the time ellapsed since last frame:
+            meshEarth.rotation.y += delta * EARTH_ROTATION_RATE_RAD;
 
             // Keep track of time:
-            ellpasedTime += delta;
+            ellapsedTime += delta;
+            timeSinceLastUpdate += delta;
 
             // Update the Threejs position of the ground stations:
             renderer.render(scene, camera);
@@ -311,8 +320,26 @@ Important notes :
         //////////////////////////////
         // INTERVALS:
         //////////////////////////////
-        setInterval(updateCurrenTimeIndicator, 1000);
+        // Update the clock:
+        setInterval(updateCurrenTimeIndicator, PERIOD_SLOW_UPDATE);
 
+        // Update the position of the ground stations:
+        setInterval(function () {
+            updateAllGsLongs(groundStations, timeSinceLastUpdate);
+        }, PERIOD_SLOW_UPDATE);
+
+
+        // Update the longitude of the GSs:
+        function updateAllGsLongs(listOfGS, timeDelta) {
+            for (let i = 0; i < gsCount; i++) {
+                const gs = listOfGS[i];
+                const oldPosSpherical = cartesian2spherical(gs.threejs.position.x, gs.threejs.position.y, gs.threejs.position.z);
+                const newCartCoords = spherical2cartesian(RADIUS_EARTH + gs.location.height, oldPosSpherical.theta, oldPosSpherical.phi + 15 * timeDelta * EARTH_ROTATION_RATE_RAD);
+                listOfGS[i].threejs.position.set(newCartCoords.x, newCartCoords.y, newCartCoords.z);
+            }
+
+            timeSinceLastUpdate = 0;
+        }
 
         //////////////////////////////
         // EVENT LISTENERS:
@@ -345,6 +372,9 @@ Important notes :
 
             // Add satellite:
             addSatellite(newSat, satellites);
+
+            //5-Increase satCount
+            satCount++;
         }
 
         let distaceOverTimePlot = [];
@@ -378,7 +408,7 @@ Important notes :
 
             // Account for the Earth's rotation:
             gsLong = deg2rad(gsLong);
-            //+ ellpasedTime * EARTH_ROTATION_RATE) % 2 * Math.PI;
+            //+ ellapsedTime * EARTH_ROTATION_RATE_RAD) % 2 * Math.PI;
 
             // Compute the Threejs position:
             const gsPos = spherical2cartesian(RADIUS_EARTH + height,
@@ -390,37 +420,40 @@ Important notes :
             groundStations.push(newGs);
 
             appendGS2DisplayList(newGs, gsDisplayList);
+
+            //4-Add to <select>
+            let opt = document.createElement('option');
+            opt.id = "selectListGsId" + newGs.id;
+            opt.value = newGs.id;
+            opt.innerHTML = newGs.name;
+            gsListSelect.appendChild(opt);
+
             gsCount++;
         }
 
         document.getElementById("distance2satBtn").onclick = function (e) {
             // GS position: 
-            let latGS = deg2rad(adaptLatitude2range(
-                Number(document.getElementById("latGS").value)));
-            let lonGS = deg2rad(Number(document.getElementById("lonGS").value));
-            let height = Number(document.getElementById("newGSHeight").value);
-            let gsPos = spherical2cartesian(RADIUS_EARTH + height, latGS, lonGS);
+            // 1 Get the selected ground station:
+            let selectedGsId = gsListSelect.value;
 
             distanceIntervalId = setInterval(function () {
+                // GS position (it has to be updated in every interval since
+                //they move with the Earth's rotation):
+                let groundStation = groundStations.filter(gs => gs.id == selectedGsId)[0];
+                let height = groundStation.location.height;
+                let gsPosCart = groundStation.threejs.position;
+
                 // Sat position:
                 let sat = satellites.filter(
-                    s => s.id == document.getElementById(
-                        "satListSelect").value)[0];
+                    s => s.id == satListSelect.value)[0];
                 let distance = 0;
                 let speed = 0;
 
+                // Distance:
                 distance = distanceBetweenTwoPoints(
                     sat.threejs.position.x, sat.threejs.position.y,
-                    sat.threejs.position.z, gsPos.x, gsPos.y, gsPos.z);
+                    sat.threejs.position.z, gsPosCart.x, gsPosCart.y, gsPosCart.z);
                 distaceOverTimePlot.push(distance / 1000);
-
-                speed = getSatSpeed(distanceBetweenTwoPoints(
-                    sat.threejs.position.x, sat.threejs.position.y,
-                    sat.threejs.position.z, 0, 0, 0
-                ), sat.orbit.a, sat.orbit.b
-                );
-                speedOverTimePlot.push(Math.round(speed));
-                timestampsPlots.push(new Date());
 
                 let distanceData = [
                     {
@@ -434,6 +467,17 @@ Important notes :
                 let distanceLayout = {
                     title: 'Distance (km)',
                 };
+
+                // Speed:
+                speed = getSatSpeed(distanceBetweenTwoPoints(
+                    sat.threejs.position.x, sat.threejs.position.y,
+                    sat.threejs.position.z, 0, 0, 0
+                ), sat.orbit.a, sat.orbit.b
+                );
+                speedOverTimePlot.push(Math.round(speed));
+
+                // Add new timestamp:
+                timestampsPlots.push(new Date());
 
                 let speedData = [
                     {
@@ -449,7 +493,7 @@ Important notes :
 
                 Plotly.newPlot('distancePlot', distanceData, distanceLayout);
                 Plotly.newPlot('speedPlot', speedData, speedLayout);
-            }, 100);
+            }, PERIOD_FAST_UPDATE);
         }
 
 
@@ -457,7 +501,7 @@ Important notes :
         // INTERFACE  FUNCTIONS:
         //////////////////////////////
         function resetCameraView() {
-            // Sets the camera to the original position and orientation.
+            // Sets the camera to the initial position and orientation.
             camera.position.set(RADIUS_EARTH * 2, 0, 0);
             camera.lookAt(0, 0, 0);
         }
@@ -471,7 +515,7 @@ Important notes :
                     sat => sat.id == id)[0].threejs.position;
                 camera.position.set(satPos.x, satPos.y, satPos.z);
                 camera.lookAt(0, 0, 0);
-            }, 100, satID);
+            }, PERIOD_FAST_UPDATE, satID);
         }
 
         function mountCameraOnGroundStation(gsID) {
@@ -586,7 +630,7 @@ Important notes :
             opt.id = "selectListSatId" + sat.id;
             opt.value = sat.id;
             opt.innerHTML = sat.name;
-            satSelectList.appendChild(opt);
+            satListSelect.appendChild(opt);
 
             //5-Increase satCount
             satCount++;
@@ -694,11 +738,14 @@ Important notes :
             // Remove the satellite from the list:
             groundStations.splice(index, 1);
 
-            // Remove the satellite from the display and the select lists:
+            // Remove the ground station from the display and the select lists:
             document.getElementById("dispListGsId" + gsID).remove();
-            
-            
+            document.getElementById("selectListGsId" + gsID).remove();
+
+
         }
+
+
 
         //////////////////////////////
         // ORBITAL FUNCTIONS:
@@ -743,6 +790,13 @@ Important notes :
             const MU = 3.986004418e+14;
             return ellipseEccentricity(a, b) == 0 ? Math.sqrt(MU / r) : Math.sqrt(MU * (2 / r - 1 / a))
 
+        }
+
+        function updateFixedLongitude(long, deltaSeconds) {
+            // Returns the new longitude of an object after deltaSeconds have
+            // passed.
+            // Longitudes in degrees.
+            return (long + EARTH_ROTATION_RATE_DEG * deltaSeconds) % 360;
         }
 
 
@@ -823,6 +877,7 @@ Important notes :
 
         function adaptLatitude2range(realLat) {
             // See notes (1) and (2):
+            // Latitudes in degrees:
             const lat3js = realLat >= 90 ? 90 - realLat : Math.abs(realLat - 90);
             return lat3js;
         }
