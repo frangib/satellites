@@ -71,6 +71,7 @@ Important notes :
             position: absolute;
             padding-left: 1%;
             padding-right: 1%;
+            overflow: scroll;
         }
 
         #leftPanel {
@@ -209,6 +210,7 @@ Important notes :
         let satCount = 0;
         let gsCount = 0;
         let cameraIntervalId = 0
+        let distanceIntervalId = 0;
 
         //////////////////////////////
         // Time stuff:
@@ -399,7 +401,7 @@ Important notes :
             let height = Number(document.getElementById("newGSHeight").value);
             let gsPos = spherical2cartesian(RADIUS_EARTH + height, latGS, lonGS);
 
-            setInterval(function () {
+            distanceIntervalId = setInterval(function () {
                 // Sat position:
                 let sat = satellites.filter(
                     s => s.id == document.getElementById(
@@ -612,6 +614,14 @@ Important notes :
             document.getElementById("dispListSatId" + satID).remove();
             document.getElementById("selectListSatId" + satID).remove();
 
+            // Stop computing the distance and other params related to the
+            // removed object:
+            clearInterval(distanceIntervalId);
+
+            // Remove the plots:
+            Plotly.purge("distancePlot");
+            Plotly.purge("speedPlot");
+
         }
 
         function appendGS2DisplayList(gs, list) {
@@ -686,8 +696,8 @@ Important notes :
 
             // Remove the satellite from the display and the select lists:
             document.getElementById("dispListGsId" + gsID).remove();
-            //document.getElementById("selectListGsId" + gsID).remove();
-
+            
+            
         }
 
         //////////////////////////////
@@ -732,6 +742,7 @@ Important notes :
             // b: semi-minor axis.
             const MU = 3.986004418e+14;
             return ellipseEccentricity(a, b) == 0 ? Math.sqrt(MU / r) : Math.sqrt(MU * (2 / r - 1 / a))
+
         }
 
 
