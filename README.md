@@ -9,7 +9,7 @@ function existsLOS(object1,object2){
  // See if there is LOS.
  //if there is LOS
       los != los;
-  return exists ? distance between the two objects : -1
+  return los ? distance between the two objects : -1
 {
 ```
 4. Toggle display orbit ellipse.
