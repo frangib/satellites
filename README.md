@@ -1,5 +1,6 @@
 # satellites
 ## Next steps:
+0. Fix coverage.
 1. Add non-equatorial orbits.
 2. Add non-centred orbits.
 3. Implement existsLOS(object1,object2)
