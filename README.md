@@ -48,6 +48,14 @@ Note: the added satellite is in a circular orbit. Therefore, it's speed is const
 ### View when the camera is mounted on an satellite
 ![5](https://user-images.githubusercontent.com/44316116/138673550-c52e59e3-b98a-4890-b4a1-f3033c759bfc.PNG)
 
+### Constantly compute the coverage of a satellite
+![6](https://user-images.githubusercontent.com/44316116/139259022-096ef4af-b8d6-4c36-bbdf-3318af467ba7.PNG)
+- A smaller map shows the region which is covered by a certain satellite a a certain elevation.
+
+### Constantly check if there is LOS
+![7](https://user-images.githubusercontent.com/44316116/139259277-cf6ca535-fe99-40d2-9824-f674b149769e.PNG)
+![8](https://user-images.githubusercontent.com/44316116/139259280-b9ebb2e2-b836-45ec-a01a-e5da51170a45.PNG)
+
 ## How it works
 ### The scene
 - It has been created using Three.js, a library for 3D rendering on the browser. 
