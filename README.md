@@ -1,19 +1,4 @@
 # satellites
-## Next steps:
-0. Fix coverage.
-1. Add non-equatorial orbits.
-2. Add non-centred orbits.
-3. Implement existsLOS(object1,object2)
-```
-function existsLOS(object1,object2){
- let los = false;
- // See if there is LOS.
- //if there is LOS
-      los != los;
-  return los ? distance between the two objects : -1
-{
-```
-4. Toggle display orbit ellipse.
 
  ## A tool to visualise satellites around the Earth based on Three.js.
  - Add satellites.
